@@ -9,21 +9,26 @@ fn main() {
 
 	let client_options = ClientOptions::parse("mongodb://localhost:27017").unwrap();
 	let client = Client::with_options(client_options).unwrap();
+	// set your DB name here.
 	let db = client.database("fiveEstellas");
 	
+	// whatever you want the new DB to be called.
 	let newcollection = db.collection("aus");
 	let _ = newcollection.drop(None);
 	
+	// test on one record.
+	test("GAQLD161695239", 5, db.collection("qld_address_detail"), db.collection("qld_street_locality"), db.collection("qld_locality"), &newcollection)
+
+	// let it rip.
 //	build_state(1, db.collection("act_address_detail"), db.collection("act_street_locality"), db.collection("act_locality", db.collection("act_address_default_geocode"), &newcollection);
 //	build_state(2, db.collection("nsw_address_detail"), db.collection("nsw_street_locality"), db.collection("nsw_locality"), db.collection("nsw_address_default_geocode"), &newcollection);
 //	build_state(3, db.collection("nt_address_detail"), db.collection("nt_street_locality"), db.collection("nt_locality"), db.collection("nt_address_default_geocode"), &newcollection);
 //	build_state(4, db.collection("ot_address_detail"), db.collection("ot_street_locality"), db.collection("ot_locality"), db.collection("ot_address_default_geocode"), &newcollection);
-	build_state(5, db.collection("qld_address_detail"), db.collection("qld_street_locality"), db.collection("qld_locality"), db.collection("qld_address_default_geocode"), &newcollection);
+//	build_state(5, db.collection("qld_address_detail"), db.collection("qld_street_locality"), db.collection("qld_locality"), db.collection("qld_address_default_geocode"), &newcollection);
 	build_state(6, db.collection("sa_address_detail"), db.collection("sa_street_locality"), db.collection("sa_locality"), db.collection("sa_address_default_geocode"), &newcollection);
 	build_state(7, db.collection("tas_address_detail"), db.collection("tas_street_locality"), db.collection("tas_locality"), db.collection("tas_address_default_geocode"), &newcollection);
 	build_state(8, db.collection("vic_address_detail"), db.collection("vic_street_locality"), db.collection("vic_locality"), db.collection("vic_address_default_geocode"), &newcollection);
 	build_state(9, db.collection("wa_address_detail"), db.collection("wa_street_locality"), db.collection("wa_locality"), db.collection("wa_address_default_geocode"), &newcollection);
-//	test(5, db.collection("qld_address_detail"), db.collection("qld_street_locality"), db.collection("qld_locality"), &newcollection)
 }
 
 fn detail_id(detail: &Document) -> &str {
@@ -155,16 +160,16 @@ fn get_geo_doc(geo: &Collection, id: &str) -> Result<Option<Document> > {
 	geo.find_one(doc! { "ADDRESS_DETAIL_PID": id }, FindOneOptions::builder().build())
 }
 
-// fn test(state: i32, detail: Collection, street: Collection, locality: Collection, newcollection: &Collection) {
-// 	match detail.find_one(doc! { "ADDRESS_DETAIL_PID": "GAQLD161695239"}, FindOneOptions::builder().build()) {
-// 		Ok(detaildoc) => {
-// 			do_detail(state, detaildoc.unwrap(), &street, &locality, &newcollection)
-// 		}
-// 		Err(e) => {
-// 			println!("err: {}", e);
-// 		}
-// 	}
-// }
+fn test(pid: &str, state: i32, detail: Collection, street: Collection, locality: Collection, newcollection: &Collection) {
+	match detail.find_one(doc! { "ADDRESS_DETAIL_PID": pid }, FindOneOptions::builder().build()) {
+		Ok(detaildoc) => {
+			do_detail(state, detaildoc.unwrap(), &street, &locality, &newcollection)
+		}
+		Err(e) => {
+			println!("err: {}", e);
+		}
+	}
+}
 
 fn do_detail(state: i32, detaildoc: Document, street: &Collection, locality: &Collection, geo: &Collection, newcollection: &Collection) {
 	match detaildoc.get("STREET_LOCALITY_PID").and_then(Bson::as_str) {

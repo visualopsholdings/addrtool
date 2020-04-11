@@ -2,13 +2,13 @@ PATH=$1
 DB=$2
 
 if [ $# -ne 2 ]; then
-	echo usage: $0 GNAF_Export_Path DB
+	echo usage: $0 G-NAF_Export_Path DB
 	exit 1
 fi
 
 if [ ! -d $PATH ]; then
 	echo $PATH not found
-	echo usage: $0 GNAF_Export_Path DB
+	echo usage: $0 G-NAF_Export_Path DB
 	exit 1
 fi
 

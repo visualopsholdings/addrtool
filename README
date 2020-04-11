@@ -1,0 +1,41 @@
+Rust based address import tool.
+
+Get address DB from:
+
+https://data.gov.au/dataset/ds-dga-19432f89-dc3a-4ef3-b943-5326ef1dbecc/details?q=
+
+Download, Unzip and then import into a DB with:
+
+$ ./import.sh path_to_unzipped_dir name_of_your_db
+
+Then edit the source in src/main.rs to set your database name and the new collection.
+
+$ cargo run
+
+And wait for a day or so :-)
+
+Afterwards you will have a nice new collection which has this schema:
+
+{
+  "_id": ObjectId("5e910a4100002e920022ca51"),
+  "STATE": 5,
+  "LOCALITY": "THORNLANDS",
+  "ADDRESS_DETAIL_PID": "GAQLD719562882",
+  "POSTCODE": 4164,
+  "STREET": "GODFREY STREET ",
+  "NUMBER_FIRST": "6",
+  "LONG": 153.24276539999999613,
+  "LAT": -27.553647994995117188
+}
+
+The state ids are:
+
+1 = ACT
+2 = NSW
+3 = NT
+4 = OT
+5 = QLD
+6 = SA
+7 = TAS
+8 = VIC
+9 = WA
