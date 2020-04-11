@@ -1,6 +1,11 @@
-use mongodb::{ Client, options::ClientOptions, Collection };
+//! This is my first very rust program.
+//!
+//! Be kind.
+//!
+//!
+
+use mongodb::{ Database, Client, options::ClientOptions, Collection };
 use mongodb::options::{ FindOptions, FindOneOptions };
-use mongodb::error::{ Result };
 use bson::{ doc, Bson, Document };
 use std::io::{ self, Write };
 use std::str::FromStr;
@@ -17,18 +22,98 @@ fn main() {
 	let _ = newcollection.drop(None);
 	
 	// test on one record.
-	test("GAQLD161695239", 5, db.collection("qld_address_detail"), db.collection("qld_street_locality"), db.collection("qld_locality"), &newcollection)
+//	test("GAQLD161695239", 5, db.collection("qld_address_detail"), db.collection("qld_street_locality"), db.collection("qld_locality"), db.collection("qld_address_default_geocode"), &newcollection);
 
 	// let it rip.
-//	build_state(1, db.collection("act_address_detail"), db.collection("act_street_locality"), db.collection("act_locality", db.collection("act_address_default_geocode"), &newcollection);
-//	build_state(2, db.collection("nsw_address_detail"), db.collection("nsw_street_locality"), db.collection("nsw_locality"), db.collection("nsw_address_default_geocode"), &newcollection);
-//	build_state(3, db.collection("nt_address_detail"), db.collection("nt_street_locality"), db.collection("nt_locality"), db.collection("nt_address_default_geocode"), &newcollection);
-//	build_state(4, db.collection("ot_address_detail"), db.collection("ot_street_locality"), db.collection("ot_locality"), db.collection("ot_address_default_geocode"), &newcollection);
-//	build_state(5, db.collection("qld_address_detail"), db.collection("qld_street_locality"), db.collection("qld_locality"), db.collection("qld_address_default_geocode"), &newcollection);
-	build_state(6, db.collection("sa_address_detail"), db.collection("sa_street_locality"), db.collection("sa_locality"), db.collection("sa_address_default_geocode"), &newcollection);
-	build_state(7, db.collection("tas_address_detail"), db.collection("tas_street_locality"), db.collection("tas_locality"), db.collection("tas_address_default_geocode"), &newcollection);
-	build_state(8, db.collection("vic_address_detail"), db.collection("vic_street_locality"), db.collection("vic_locality"), db.collection("vic_address_default_geocode"), &newcollection);
-	build_state(9, db.collection("wa_address_detail"), db.collection("wa_street_locality"), db.collection("wa_locality"), db.collection("wa_address_default_geocode"), &newcollection);
+	build_state(&db, 1, "act", &newcollection);
+	build_state(&db, 2, "nsw", &newcollection);
+	build_state(&db, 3, "nt", &newcollection);
+	build_state(&db, 4, "ot", &newcollection);
+	build_state(&db, 5, "qld", &newcollection);
+	build_state(&db, 6, "sa", &newcollection);
+	build_state(&db, 7, "tas", &newcollection);
+	build_state(&db, 8, "vic", &newcollection);
+	build_state(&db, 9, "wa", &newcollection);
+}
+
+fn build_state(db: &Database, state: i32, name: &str, newcollection: &Collection) {
+	_build_state(state, 
+		db.collection(format!("{}_address_detail", name).as_str()), 
+		db.collection(format!("{}_street_locality", name).as_str()), 
+		db.collection(format!("{}_locality", name).as_str()), 
+		db.collection(format!("{}_address_default_geocode", name).as_str()), 
+		&newcollection);
+}
+
+// fn test(pid: &str, state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, newcollection: &Collection) {
+// 	match detail.find_one(doc! { "ADDRESS_DETAIL_PID": pid }, FindOneOptions::builder().build()) {
+// 		Ok(detaildoc) => {
+// 			do_detail(state, detaildoc.unwrap(), &street, &locality, &geo, &newcollection)
+// 		}
+// 		Err(e) => {
+// 			println!("err: {}", e);
+// 		}
+// 	}
+// }
+
+fn _build_state(state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, newcollection: &Collection) {
+	
+	println!("state {}", state);
+	let detailp = detail.find(None, FindOptions::builder().build()).unwrap();
+	let mut i = 0;
+	for result in detailp {
+		match result {
+			Ok(detaildoc) => {
+			
+				i += 1;
+				// dot each 1000
+				if (i % 1000) == 0 {
+					print!(".");
+					io::stdout().flush().unwrap();
+				}
+				// 80 columns :-) why not.
+				if (i % 80000) == 0 {
+					println!("");
+				}
+				
+				do_detail(state, detaildoc, &street, &locality, &geo, &newcollection)
+			}
+			Err(e) => {
+				println!("err: {}", e);
+			}
+		}
+	}
+	println!("");
+}
+
+fn do_detail(state: i32, detaildoc: Document, street: &Collection, locality: &Collection, geo: &Collection, newcollection: &Collection) {
+	
+	let detailid = detail_id(&detaildoc);
+	match detaildoc.get("STREET_LOCALITY_PID").and_then(Bson::as_str) {
+		Some(sid) => {
+			let streetdoc = get_street_doc(&street, sid);
+			let geodoc = get_geo_doc(&geo, detailid);
+			match detaildoc.get("LOCALITY_PID").and_then(Bson::as_str) {
+				Some(id) => {
+					let locdoc = get_locality_doc(&locality, id);
+					match locdoc.get("LOCALITY_NAME").and_then(Bson::as_str) {
+						Some(name) => {
+							new_doc(state, &detaildoc, &streetdoc, &geodoc, name, &newcollection)
+						}
+						None => {
+							new_doc(state, &detaildoc, &streetdoc, &geodoc, "UNKNOWN", &newcollection)
+						}
+					}
+				}
+				None => {
+					new_doc(state, &detaildoc, &streetdoc, &geodoc, "UNKNOWN", &newcollection)
+				}
+			}
+		}
+		None => {
+			println!("missing STREET_LOCALITY_PID in detail {}, ", detailid);
+		}
+	}
 }
 
 fn detail_id(detail: &Document) -> &str {
@@ -145,104 +230,48 @@ fn new_doc(state: i32, detail: &Document, street: &Document, geo: &Document, loc
 	build_number(&detail, "NUMBER_LAST_PREFIX", "NUMBER_LAST", "NUMBER_LAST_SUFFIX", "NUMBER_LAST", &mut newdoc);
 	build_longlat(&geo, "LONGITUDE", "LONG", &mut newdoc);
 	build_longlat(&geo, "LATITUDE\r", "LAT", &mut newdoc);
-	newcollection.insert_one(newdoc, None).unwrap();
+	let _ = newcollection.insert_one(newdoc, None);
 }
 
-fn get_street_doc(street: &Collection, sid: &str) -> Result<Option<Document> > {
-	street.find_one(doc! { "STREET_LOCALITY_PID": sid }, FindOneOptions::builder().build())
-}
-
-fn get_locality_doc(locality: &Collection, id: &str) -> Result<Option<Document> > {
-	locality.find_one(doc! { "LOCALITY_PID": id }, FindOneOptions::builder().build())
-}
-
-fn get_geo_doc(geo: &Collection, id: &str) -> Result<Option<Document> > {
-	geo.find_one(doc! { "ADDRESS_DETAIL_PID": id }, FindOneOptions::builder().build())
-}
-
-fn test(pid: &str, state: i32, detail: Collection, street: Collection, locality: Collection, newcollection: &Collection) {
-	match detail.find_one(doc! { "ADDRESS_DETAIL_PID": pid }, FindOneOptions::builder().build()) {
-		Ok(detaildoc) => {
-			do_detail(state, detaildoc.unwrap(), &street, &locality, &newcollection)
-		}
+fn get_street_doc(street: &Collection, sid: &str) -> Document {
+	match street.find_one(doc! { "STREET_LOCALITY_PID": sid }, FindOneOptions::builder().build()) {
+		Ok(doc) => {
+			match doc {
+				Some(d) => d,
+				None => { panic!("unwrap get_street_doc {}. Maybe you didn't populate the DB?", sid); }
+			}
+		},
 		Err(e) => {
-			println!("err: {}", e);
+			panic!("get_street_doc {} err: {}", sid, e);
 		}
 	}
 }
 
-fn do_detail(state: i32, detaildoc: Document, street: &Collection, locality: &Collection, geo: &Collection, newcollection: &Collection) {
-	match detaildoc.get("STREET_LOCALITY_PID").and_then(Bson::as_str) {
-		Some(sid) => {
-			match get_street_doc(&street, sid) {
-				Ok(streetdoc) => {
-					match detaildoc.get("LOCALITY_PID").and_then(Bson::as_str) {
-						Some(id) => {
-							let detailid = detail_id(&detaildoc);
-							match get_locality_doc(&locality, id) {
-								Ok(locdoc) => {
-									match get_geo_doc(&geo, detailid) {
-										Ok(geodoc) => {
-											new_doc(state, &detaildoc, &streetdoc.unwrap(), &geodoc.unwrap(), locdoc.unwrap().get("LOCALITY_NAME").and_then(Bson::as_str).unwrap(), &newcollection)
-										}
-										Err(e) => {
-											println!("geo {} err: {}", detailid, e);
-										}
-									}
-								}
-								Err(e) => {
-									println!("{} err: {}", detailid, e);
-								}
-							}
-						}
-						None => {
-							let detailid = detail_id(&detaildoc);
-							match get_geo_doc(&geo, detailid) {
-								Ok(geodoc) => {
-									new_doc(state, &detaildoc, &streetdoc.unwrap(), &geodoc.unwrap(), "UNKNOWN", &newcollection)
-								}
-								Err(e) => {
-									println!("noloc geo {} err: {}", detailid, e);
-								}
-							}
-						}
-					}
-				}
-				Err(e) => {
-					println!("{} {} err: {}", detail_id(&detaildoc), sid, e);
-				}
+fn get_locality_doc(locality: &Collection, id: &str) -> Document {
+	match locality.find_one(doc! { "LOCALITY_PID": id }, FindOneOptions::builder().build()) {
+		Ok(doc) => {
+			match doc {
+				Some(d) => d,
+				None => { panic!("unwrap get_locality_doc {}. Maybe you didn't populate the DB?", id); }
 			}
-		}
-		None => {
-			println!("missing STREET_LOCALITY_PID in detail {}, ", detail_id(&detaildoc));
+		},
+		Err(e) => {
+			panic!("get_locality_doc {} err: {}", id, e);
 		}
 	}
 }
 
-fn build_state(state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, newcollection: &Collection) {
-	
-	println!("state {}", state);
-	let detailp = detail.find(None, FindOptions::builder().build()).unwrap();
-
-	let mut i = 0;
-	for result in detailp {
-		match result {
-			Ok(detaildoc) => {
-			
-				i += 1;
-				if (i % 100) == 0 {
-					print!(".");
-					io::stdout().flush().unwrap();
-				}
-				if (i % 5000) == 0 {
-					println!("");
-				}
-				do_detail(state, detaildoc, &street, &locality, &geo, &newcollection)
+fn get_geo_doc(geo: &Collection, id: &str) -> Document {
+	match geo.find_one(doc! { "ADDRESS_DETAIL_PID": id }, FindOneOptions::builder().build()) {
+		Ok(doc) => {
+			match doc {
+				Some(d) => d,
+				None => { panic!("unwrap get_geo_doc {}. Maybe you didn't populate the DB?", id); }
 			}
-			Err(e) => {
-				println!("err: {}", e);
-			}
+		},
+		Err(e) => {
+			panic!("get_geo_doc {} err: {}", id, e);
 		}
 	}
-	println!("");
 }
+

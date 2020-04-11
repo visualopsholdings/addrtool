@@ -4,29 +4,51 @@ Get address DB from:
 
 https://data.gov.au/dataset/ds-dga-19432f89-dc3a-4ef3-b943-5326ef1dbecc/details?q=
 
-Download, Unzip and then import into a DB with:
+Download, Unzip:
 
-$ ./import.sh path_to_unzipped_dir name_of_your_db
+Edit the import.sh script and change "fiveEstellas" to the name of your MondoDB database,
+and the path where you unzipped your downloaded data.
 
-Then edit the source in src/main.rs to set your database name and the new collection.
+Then mport into a DB with:
+
+$ ./import.sh
+
+After this your mongo DB will have a tremendous number of collections that are used by the Rust based tool.
+
+You will need an incredible amount of disk space. I unzipped the files onto an external drive and then used that to import from since your MongoDB will grow considerably.
+
+Once you have it all imported into MongoDB, the Rust tool below uses the MongoDB so you don't need all the unzipped files anymore.
+
+Now edit the source in src/main.rs to set your database name and the new collection.
 
 $ cargo run
 
-And wait for a day or so :-)
+And wait for a day or so. On my old MacBook pro it does 250 records every second.
 
 Afterwards you will have a nice new collection which has this schema:
 
 {
-  "_id": ObjectId("5e910a4100002e920022ca51"),
+  "_id": ObjectId("5e910adc003cbe3100233296"),
   "STATE": 5,
-  "LOCALITY": "THORNLANDS",
-  "ADDRESS_DETAIL_PID": "GAQLD719562882",
-  "POSTCODE": 4164,
-  "STREET": "GODFREY STREET ",
-  "NUMBER_FIRST": "6",
-  "LONG": 153.24276539999999613,
-  "LAT": -27.553647994995117188
+  "LOCALITY": "SPRING HILL",
+  "ADDRESS_DETAIL_PID": "GAQLD163300318",
+  "POSTCODE": 4000,
+  "FLAT_TYPE": "SE",
+  "LEVEL_TYPE": "L",
+  "STREET": "WICKHAM TERRACE ",
+  "FLAT_NUMBER": "3",
+  "LEVEL_NUMBER": "4",
+  "NUMBER_FIRST": "155",
+  "NUMBER_LAST": "157",
+  "LONG": 153.0250418800000034,
+  "LAT": -27.464509963989257812
 }
+
+- There will always be a "NUMBER_FIRST" which is basically the house number.
+- There will only be a "NUMBER_LAST" if the address spans a few house numbers.
+- There will only be a "FLAT_TYPE" and "FLAT_NUMBER" if it is a block of flats.
+- There will only be a "LEVEL_TYPE" and "LEVEL_NUMBER" if it is a block of flats that has multiple levels.
+- The "ADDRESS_DETAIL_PID" is useful if you want something else later on from the G-NAF database.
 
 The state ids are:
 
