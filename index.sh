@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # create all the indexes.
 
 if [ "$#" -ne 2 ]; then

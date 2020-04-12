@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # drop all created tables.
 
 if [ "$#" -ne 1 ]; then
