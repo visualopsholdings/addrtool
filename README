@@ -6,12 +6,11 @@ https://data.gov.au/dataset/ds-dga-19432f89-dc3a-4ef3-b943-5326ef1dbecc/details?
 
 Download, Unzip:
 
-Edit the import.sh script and change "fiveEstellas" to the name of your MondoDB database,
-and the path where you unzipped your downloaded data.
+Edit the import.sh script and change the path where you unzipped your downloaded data.
 
-Then mport into a DB with:
+Then import into a DB with:
 
-$ ./import.sh
+$ ./import.sh yourDBname
 
 After this your mongo DB will have a tremendous number of collections that are used by the Rust based tool.
 
@@ -19,11 +18,11 @@ You will need an incredible amount of disk space. I unzipped the files onto an e
 
 Once you have it all imported into MongoDB, the Rust tool below uses the MongoDB so you don't need all the unzipped files anymore.
 
-Now edit the source in src/main.rs to set your database name and the new collection.
-
-$ cargo run
+$ cargo run yourDBname aus
 
 And wait for a day or so. On my old MacBook pro it does 250 records every second.
+
+There are 15271641 records or so, so do the math :-) (I did, 16.96849 hours)
 
 Afterwards you will have a nice new collection which has this schema:
 
@@ -61,3 +60,24 @@ The state ids are:
 7 = TAS
 8 = VIC
 9 = WA
+
+And then right at the end run:
+
+./index.sh yourDBname aus
+
+Where "aus" is the name of the new collection.
+
+To create useful indexes on the collection.
+
+And then finally:
+
+./drop.sh yourDBname
+
+To drop all the collections that were used.
+
+To backup the DB you created:
+
+./backup.sh yourDBname aus aus.tgz
+
+
+

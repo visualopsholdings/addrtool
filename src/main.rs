@@ -5,25 +5,41 @@
 //!
 
 use mongodb::{ Database, Client, options::ClientOptions, Collection };
-use mongodb::options::{ FindOptions, FindOneOptions };
+use mongodb::options::{ FindOptions, FindOneOptions, DeleteOptions };
 use bson::{ doc, Bson, Document };
 use std::io::{ self, Write };
 use std::str::FromStr;
+use structopt::StructOpt;
+
+/// Search for a pattern in a file and display the lines that contain it.
+#[derive(StructOpt)]
+struct Cli {
+    db: String,
+    coll: String
+}
 
 fn main() {
 
+    let args = Cli::from_args();
+    
 	let client_options = ClientOptions::parse("mongodb://localhost:27017").unwrap();
 	let client = Client::with_options(client_options).unwrap();
 	// set your DB name here.
-	let db = client.database("fiveEstellas");
+	let db = client.database(&args.db);
 	
 	// whatever you want the new DB to be called.
-	let newcollection = db.collection("aus");
+	let newcollection = db.collection(&args.coll);
+	match newcollection.estimated_document_count(None) {
+		Ok(count) => { 
+			println!("{} in {} has {} documents.", args.coll, args.db, count); 
+		},
+		Err(e) => {
+			panic!("can't get document count of {} in {}: {}", args.coll, args.db, e);
+		}
+ 	}
+	
 	let _ = newcollection.drop(None);
 	
-	// test on one record.
-//	test("GAQLD161695239", 5, db.collection("qld_address_detail"), db.collection("qld_street_locality"), db.collection("qld_locality"), db.collection("qld_address_default_geocode"), &newcollection);
-
 	// let it rip.
 	build_state(&db, 1, "act", &newcollection);
 	build_state(&db, 2, "nsw", &newcollection);
@@ -34,6 +50,9 @@ fn main() {
 	build_state(&db, 7, "tas", &newcollection);
 	build_state(&db, 8, "vic", &newcollection);
 	build_state(&db, 9, "wa", &newcollection);
+
+	// build one record. (make sure to comment out the drop of the collection above!)
+//	build_one(&db, "GAVIC420185566", 8, "vic", &newcollection);
 }
 
 fn build_state(db: &Database, state: i32, name: &str, newcollection: &Collection) {
@@ -45,16 +64,27 @@ fn build_state(db: &Database, state: i32, name: &str, newcollection: &Collection
 		&newcollection);
 }
 
-// fn test(pid: &str, state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, newcollection: &Collection) {
-// 	match detail.find_one(doc! { "ADDRESS_DETAIL_PID": pid }, FindOneOptions::builder().build()) {
-// 		Ok(detaildoc) => {
-// 			do_detail(state, detaildoc.unwrap(), &street, &locality, &geo, &newcollection)
-// 		}
-// 		Err(e) => {
-// 			println!("err: {}", e);
-// 		}
-// 	}
-// }
+fn build_one(db: &Database, pid: &str, state: i32, name: &str, newcollection: &Collection) {
+	_build_one(pid, state,
+		db.collection(format!("{}_address_detail", name).as_str()), 
+		db.collection(format!("{}_street_locality", name).as_str()), 
+		db.collection(format!("{}_locality", name).as_str()), 
+		db.collection(format!("{}_address_default_geocode", name).as_str()), 
+		&newcollection
+	);
+}
+
+fn _build_one(pid: &str, state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, newcollection: &Collection) {
+	let _ = newcollection.delete_one(doc! { "ADDRESS_DETAIL_PID": pid }, DeleteOptions::builder().build());
+	match detail.find_one(doc! { "ADDRESS_DETAIL_PID": pid }, FindOneOptions::builder().build()) {
+		Ok(detaildoc) => {
+			do_detail(state, detaildoc.unwrap(), &street, &locality, &geo, &newcollection)
+		}
+		Err(e) => {
+			println!("err: {}", e);
+		}
+	}
+}
 
 fn _build_state(state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, newcollection: &Collection) {
 	
@@ -208,7 +238,14 @@ fn build_longlat(geo: &Document, name: &str, newname: &str, newdoc: &mut Documen
 		None => { 
 			match geo.get(name).and_then(Bson::as_f64) {
 				Some(v) => { let _ = newdoc.insert(newname, v); },
-				None => { println!("missing {} in {}", name, detail_id(&geo)); }
+				None => { 
+					match geo.get(name).and_then(Bson::as_i32) {
+						Some(v) => { let _ = newdoc.insert(newname, v as f32); },
+						None => { 
+							println!("missing {} in {}", name, detail_id(&geo)); 
+						}
+					}	
+				}
 			}	
 		}
 	}
