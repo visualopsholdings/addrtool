@@ -1,10 +1,14 @@
-Rust based address import tool.
+This is a Rust based address import tool for the G-NAF australian address database.
 
-Get address DB from:
+It will take all these CSV files that are meant to be imported into an SQL DB and create a beautiful and simple MongoDB collection out of them that is far more useful.
+
+1) Get address DB from:
 
 https://data.gov.au/dataset/ds-dga-19432f89-dc3a-4ef3-b943-5326ef1dbecc/details?q=
 
-Download, Unzip:
+2) Download, Unzip.
+
+3) Import all the data to a lot of MongoDB databases.
 
 Edit the import.sh script and change the path where you unzipped your downloaded data.
 
@@ -14,7 +18,9 @@ $ ./import.sh yourDBname
 
 After this your mongo DB will have a tremendous number of collections that are used by the Rust based tool.
 
-You will need an incredible amount of disk space. I unzipped the files onto an external drive and then used that to import from since your MongoDB will grow considerably.
+You will need a lot of disk space. I unzipped the files onto an external drive and then used that to import from since your MongoDB will grow considerably.
+
+4) Run the Rust tool to create a new collection called "aus"
 
 Once you have it all imported into MongoDB, the Rust tool below uses the MongoDB so you don't need all the unzipped files anymore.
 
@@ -61,7 +67,7 @@ The state ids are:
 8 = VIC
 9 = WA
 
-And then right at the end run:
+5) Index your new DB 
 
 ./index.sh yourDBname aus
 
@@ -69,15 +75,18 @@ Where "aus" is the name of the new collection.
 
 To create useful indexes on the collection.
 
-And then finally:
+6) Drop all the unused collections
 
 ./drop.sh yourDBname
 
 To drop all the collections that were used.
 
+7) Backup your new DB
+
 To backup the DB you created:
 
 ./backup.sh yourDBname aus aus.tgz
+
 
 
 
