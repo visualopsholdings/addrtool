@@ -1,10 +1,14 @@
-This is a Rust based address import tool for the G-NAF australian address database.
+This is a Rust based address import tool for the G-NAF australian address database, or opengov databases from the US.
 
 It will take all these CSV files that are meant to be imported into an SQL DB and create a beautiful and simple MongoDB collection out of them that is far more useful.
 
 1) Get address DB from:
 
 https://data.gov.au/dataset/ds-dga-19432f89-dc3a-4ef3-b943-5326ef1dbecc/details?q=
+
+or 
+
+https://catalog.data.gov/dataset?q=Address_Point
 
 2) Download, Unzip.
 
@@ -14,25 +18,29 @@ Edit the import.sh script and change the path where you unzipped your downloaded
 
 Then import into a DB with:
 
-$ ./import.sh yourDBname aus
+$ ./import-G-NAF.sh yourDBname address
+
+or 
+
+$ $ ./import-open-gov.sh yourDBname address
 
 After this your mongo DB will have a tremendous number of collections that are used by the Rust based tool.
 
 You will need a lot of disk space. I unzipped the files onto an external drive and then used that to import from since your MongoDB will grow considerably.
 
-4) Run the Rust tool to create a new collection called "aus"
+4) Run the Rust tool to create a new collection called "address"
 
 Once you have it all imported into MongoDB, the Rust tool below uses the MongoDB so you don't need all the unzipped files anymore.
 
-$ ./build.sh yourDBname aus
+$ ./build-G-NAF.sh yourDBname address
+
+or 
+
+$ ./build-open-gov.sh yourDBname address
 
 The ids can be anything you like, just pick a different one for each state. Or you can just have a single state.
 
-Then wait for a day or so. On my old MacBook pro it does 250 records every second.
-
-There are 15271641 records or so, so do the math :-) (I did, 16.96849 hours)
-
-Afterwards you will have a nice new collection "aus" which has this schema:
+Afterwards you will have a nice new collection "address" which has this schema:
 
 {
   "_id": ObjectId("5e910adc003cbe3100233296"),
@@ -52,7 +60,7 @@ Afterwards you will have a nice new collection "aus" which has this schema:
 - There will only be a "LEVEL" if it is a block of flats that has multiple levels.
 - The "ADDRESS_DETAIL_PID" is useful if you want something else later on from the G-NAF database.
 
-And one more collection "aus_tuple" that looks like this:
+And one more collection "address_tuple" that looks something like this:
 
 {
   "_id": ObjectId("5e910adc003cbe3100233297"),
@@ -61,33 +69,40 @@ And one more collection "aus_tuple" that looks like this:
   "ZIP": 4000
 }
 
+For the US, "LOCALITY" is taken from BOROUGH, so it's a number from 1 to 5.
+
 When your debugging, you can specify a singel doc to try it all out with:
 
-$ cargo run yourDBname aus 1 ACT --single GAACT715707966
+$ cargo run yourDBname aus 1 --gnaf act --single GAACT715707966
 
 You can also drop all of the data in the collections commpletely for a run by using:
 
-$ cargo run yourDBname aus 1 ACT --drop
+$ cargo run yourDBname aus 1 --gnaf act --drop
 
 To see other options, use
 
-$ cargo run
+$ cargo run help --help
 
 5) Backup your new DB
 
 To backup the DB you created. Do this before you create the indexes on it.
 
-./backup.sh yourDBname aus aus.tgz
+./backup.sh yourDBname address address
 
 6) Index your new DB 
 
-./index.sh yourDBname aus
+./index.sh yourDBname address
 
 To create useful indexes on the collection. You can use this script after importing your DB somewhere else.
 
 7) Drop all the unused collections
 
-./drop.sh yourDBname
+./drop-G-NAF.sh yourDBname
+
+or 
+
+./drop-open-gov.sh yourDBname
+
 
 To drop all the collections that were used.
 

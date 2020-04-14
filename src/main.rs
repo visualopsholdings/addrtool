@@ -12,21 +12,24 @@ use std::str::FromStr;
 use structopt::StructOpt;
 use std::string::String;
 
-/// Import tool for the G-NAF australian address database.
+/// Import tool for the either G-NAF australian address database or US open gov address data.
 #[derive(StructOpt)]
 struct Cli {
 
     #[structopt(help="The name of the DB in MongoDB")]
     db: String,
     
-    #[structopt(help="The prefix for the various G-NAF to use")]
+    #[structopt(long, help="G-NAF data", default_value="")]
+    gnaf: String,
+
+    #[structopt(long, help="US Open Government data")]
+    opengov: bool,
+
+    #[structopt(help="The name of the collection to create")]
     coll: String,
     
-    #[structopt(help="An identifier for the STATE field")]
+    #[structopt(help="An identifier for the STATE field", default_value="1")]
     state: i32,
-    
-    #[structopt(help="The name of the collection to create")]
-    name: String,
     
     #[structopt(long, default_value="", help="The ID of a single record to process")]
     single: String,
@@ -69,33 +72,62 @@ fn main() {
 		let _ = newtuple.drop(None);
 	}
 
-	if args.single.len() > 0 {
-		build_one(&db, args.single.as_str(), args.state, args.name.as_str(), &newcollection, &newtuple);
-	}
-	else {
-		if args.nomain {
-			if args.notuples {
-				println!("Test run, nothing will happen");
-				build_state(&db, args.state, args.name.as_str(), None, None);
-			}
-			else {
-				println!("Only tuples.");
-				build_state(&db, args.state, args.name.as_str(), None, Some(&newtuple));
-			}
-		}
-		if args.notuples {
-			println!("Only main collection.");
-			build_state(&db, args.state, args.name.as_str(), Some(&newcollection), None);
+	if args.gnaf.len() > 0 {
+		if args.single.len() > 0 {
+			build_one_gnaf(&db, args.single.as_str(), args.state, args.gnaf.as_str(), &newcollection, &newtuple);
 		}
 		else {
-			build_state(&db, args.state, args.name.as_str(), Some(&newcollection), Some(&newtuple));
+			if args.nomain {
+				if args.notuples {
+					println!("Test run, nothing will happen");
+					build_state_gnaf(&db, args.state, args.gnaf.as_str(), None, None);
+				}
+				else {
+					println!("Only tuples.");
+					build_state_gnaf(&db, args.state, args.gnaf.as_str(), None, Some(&newtuple));
+				}
+			}
+			if args.notuples {
+				println!("Only main collection.");
+				build_state_gnaf(&db, args.state, args.gnaf.as_str(), Some(&newcollection), None);
+			}
+			else {
+				build_state_gnaf(&db, args.state, args.gnaf.as_str(), Some(&newcollection), Some(&newtuple));
+			}
 		}
+	}
+	else if args.opengov {
+		if args.single.len() > 0 {
+			build_one_og(&db, args.single.as_str(), args.state, &newcollection, &newtuple);
+		}
+		else {
+			if args.nomain {
+				if args.notuples {
+					println!("Test run, nothing will happen");
+					build_state_og(&db, args.state, None, None);
+				}
+				else {
+					println!("Only tuples.");
+					build_state_og(&db, args.state, None, Some(&newtuple));
+				}
+			}
+			if args.notuples {
+				println!("Only main collection.");
+				build_state_og(&db, args.state, Some(&newcollection), None);
+			}
+			else {
+				build_state_og(&db, args.state, Some(&newcollection), Some(&newtuple));
+			}
+		}
+	}
+	else {
+		println!("Need to set --opengov or --gnaf prefix.")
 	}
 }
 
-fn build_state(db: &Database, state: i32, name: &str, newcollection: Option<&Collection>, newtuple: Option<&Collection>) {
+fn build_state_gnaf(db: &Database, state: i32, name: &str, newcollection: Option<&Collection>, newtuple: Option<&Collection>) {
 	println!("building {} state {}", name, state);
-	_build_state(state, 
+	_build_state_gnaf(state, 
 		db.collection(format!("{}_address_detail", name).as_str()), 
 		db.collection(format!("{}_street_locality", name).as_str()), 
 		db.collection(format!("{}_locality", name).as_str()), 
@@ -104,7 +136,7 @@ fn build_state(db: &Database, state: i32, name: &str, newcollection: Option<&Col
 	);
 }
 
-fn _build_state(state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, 
+fn _build_state_gnaf(state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, 
 		newcollection: Option<&Collection>, newtuplescollection: Option<&Collection>) {
 	
 	match newcollection {
@@ -161,7 +193,7 @@ fn _build_state(state: i32, detail: Collection, street: Collection, locality: Co
 					print!("({} tuples)", newtuples.len());
 					println!(" {}%", (((i as f32) / (total as f32)) * 100.0).floor());
 				}
-				let (doc, tuple) = do_detail(state, detaildoc, &street, &locality, &geo);
+				let (doc, tuple) = do_detail_gnaf(state, detaildoc, &street, &locality, &geo);
 				match doc {
 					Some(doc) => {
 						newdocs.push(doc);
@@ -202,9 +234,9 @@ fn _build_state(state: i32, detail: Collection, street: Collection, locality: Co
 	println!("");
 }
 
-fn build_one(db: &Database, pid: &str, state: i32, name: &str, newcollection: &Collection, newtuple: &Collection) {
+fn build_one_gnaf(db: &Database, pid: &str, state: i32, name: &str, newcollection: &Collection, newtuple: &Collection) {
 	println!("building {} in {} state {}", pid, name, state);
-	_build_one(pid, state,
+	_build_one_gnaf(pid, state,
 		db.collection(format!("{}_address_detail", name).as_str()), 
 		db.collection(format!("{}_street_locality", name).as_str()), 
 		db.collection(format!("{}_locality", name).as_str()), 
@@ -213,7 +245,7 @@ fn build_one(db: &Database, pid: &str, state: i32, name: &str, newcollection: &C
 	);
 }
 
-fn _build_one(pid: &str, state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, 
+fn _build_one_gnaf(pid: &str, state: i32, detail: Collection, street: Collection, locality: Collection, geo: Collection, 
 		newcollection: &Collection, newtuple: &Collection) {
 		
 	match newcollection.delete_one(doc! { "EID": pid }, DeleteOptions::builder().build()) {
@@ -224,7 +256,7 @@ fn _build_one(pid: &str, state: i32, detail: Collection, street: Collection, loc
 		Ok(detaildoc) => {
 			match detaildoc {
 				Some(doc) => {
-					let (doc, tuple) = do_detail(state, doc, &street, &locality, &geo);
+					let (doc, tuple) = do_detail_gnaf(state, doc, &street, &locality, &geo);
 					match doc {
 						Some(doc) => {
 							let _ = newcollection.insert_one(doc, None);
@@ -247,66 +279,64 @@ fn _build_one(pid: &str, state: i32, detail: Collection, street: Collection, loc
 	}
 	
 }
-fn do_detail(state: i32, detaildoc: Document, street: &Collection, locality: &Collection, geo: &Collection) -> 
+
+fn do_detail_gnaf(state: i32, detaildoc: Document, street: &Collection, locality: &Collection, geo: &Collection) -> 
 		(Option<Document>, Option<(i32, String, i32)>) {
 	
-	let detailid = detail_id(&detaildoc);
-	match get_str(&detaildoc, "STREET_LOCALITY_PID") {
+	let id = detail_id_gnaf(&detaildoc);
+	match get_str(&detaildoc, &id, "STREET_LOCALITY_PID") {
 		Some(sid) => {
 			let streetdoc = get_street_doc(&street, sid.as_str());
-			let geodoc = get_geo_doc(&geo, detailid);
+			let geodoc = get_geo_doc(&geo, &id);
 			
-			match new_doc(state, &detaildoc, &streetdoc, &geodoc) {
+			match new_doc_gnaf(state, &detaildoc, &streetdoc, &geodoc) {
 				Some(doc) => {
-					match get_i32(&detaildoc, "POSTCODE") {
+					match get_i32(&detaildoc, &id, "POSTCODE") {
 						Some(zip) => { 
 							match get_possible_str(&detaildoc, "LOCALITY_PID") {
 								Some(lid) => {
 									let locdoc = get_locality_doc(&locality, lid.as_str());
-									match get_str(&locdoc, "LOCALITY_NAME") {
+									match get_str(&locdoc, &id, "LOCALITY_NAME") {
 										Some(locality) => {
 											(Some(doc), Some((state, locality, zip)))
 										},
-										None => (None, None)
+										None => (Some(doc), None)
 									}
 								}
 								None => {
-									match get_i32(&detaildoc, "LOCALITY_PID") {
+									match get_i32(&detaildoc, &id, "LOCALITY_PID") {
 										Some(lid) => {
 											let locdoc = get_locality_doc_with_int(&locality, lid);
-											match get_str(&locdoc, "LOCALITY_NAME") {
+											match get_str(&locdoc, &id, "LOCALITY_NAME") {
 												Some(locality) => {
 													(Some(doc), Some((state, locality, zip)))
 												}
-												None => (None, None)
+												None => (Some(doc), None)
 											}
 										},
-										None => (None, None)
+										None => (Some(doc), None)
 									}
 								}
 							}
 						},
-						None => (None, None)
+						None => (Some(doc), None)
 					}			
 				},
 				None => (None, None)
 			}
 		}
 		None => {
-			println!("missing STREET_LOCALITY_PID in detail {}, ", detailid);
+			println!("missing STREET_LOCALITY_PID in detail {}, ", id);
 			(None, None)
 		}
 	}
 }
 
-fn new_doc(state: i32, detail: &Document, street: &Document, geo: &Document) -> Option<Document> {
+fn new_doc_gnaf(state: i32, detail: &Document, street: &Document, geo: &Document) -> Option<Document> {
 
-	let mut newdoc = doc! { "STATE": state };
-	match get_str(&detail, "ADDRESS_DETAIL_PID") {
-		Some(value) => { let _ = newdoc.insert("EID", value); },
-		None => ()
-	}
-	match get_i32(&detail, "POSTCODE") {
+	let id = detail_id_gnaf(&detail);
+	let mut newdoc = doc! { "STATE": state, "EID": id.as_str() };
+	match get_i32(&detail, &id, "POSTCODE") {
 		Some(value) => { let _ = newdoc.insert("ZIP", value); },
 		None => ()
 	}
@@ -315,9 +345,9 @@ fn new_doc(state: i32, detail: &Document, street: &Document, geo: &Document) -> 
 		None => { println!("missing street name in {}", street_id(&street)); }
 	}
 	
-	match build_number(&detail, "FLAT_NUMBER_PREFIX", "FLAT_NUMBER", "FLAT_NUMBER_SUFFIX") {
+	match build_number_gnaf(&detail, "FLAT_NUMBER_PREFIX", "FLAT_NUMBER", "FLAT_NUMBER_SUFFIX") {
 		Some(flatnum) => { 
-			match get_str(&detail, "FLAT_TYPE_CODE") {
+			match get_str(&detail, &id, "FLAT_TYPE_CODE") {
 				Some(flattype) => { let _ = newdoc.insert("UNIT", format!("{} {}", flattype, flatnum)); },
 				None => { let _ = newdoc.insert("UNIT", flatnum); }
 			}
@@ -325,9 +355,9 @@ fn new_doc(state: i32, detail: &Document, street: &Document, geo: &Document) -> 
 		None => ()
 	}
 
-	match build_number(&detail, "LEVEL_NUMBER_PREFIX", "LEVEL_NUMBER", "LEVEL_NUMBER_SUFFIX") {
+	match build_number_gnaf(&detail, "LEVEL_NUMBER_PREFIX", "LEVEL_NUMBER", "LEVEL_NUMBER_SUFFIX") {
 		Some(levelnum) => { 
-			match get_str(&detail, "LEVEL_TYPE_CODE") {
+			match get_str(&detail, &id, "LEVEL_TYPE_CODE") {
 				Some(leveltype) => { let _ = newdoc.insert("LEVEL", format!("{} {}", leveltype, levelnum)); },
 				None => { let _ = newdoc.insert("LEVEL", levelnum); }
 			}
@@ -335,9 +365,9 @@ fn new_doc(state: i32, detail: &Document, street: &Document, geo: &Document) -> 
 		None => ()
 	}
 	
-	match build_number(&detail, "NUMBER_FIRST_PREFIX", "NUMBER_FIRST", "NUMBER_FIRST_SUFFIX") {
+	match build_number_gnaf(&detail, "NUMBER_FIRST_PREFIX", "NUMBER_FIRST", "NUMBER_FIRST_SUFFIX") {
 		Some(first) => { 
-			match build_number(&detail, "NUMBER_LAST_PREFIX", "NUMBER_LAST", "NUMBER_LAST_SUFFIX") {
+			match build_number_gnaf(&detail, "NUMBER_LAST_PREFIX", "NUMBER_LAST", "NUMBER_LAST_SUFFIX") {
 				Some(last) => { 
 					let _ = newdoc.insert("NUMBER", format!("{} - {}", first, last)); 
 				},
@@ -349,7 +379,7 @@ fn new_doc(state: i32, detail: &Document, street: &Document, geo: &Document) -> 
 		None => ()
 	}
 
-	match build_number(&detail, "LOT_NUMBER_PREFIX", "LOT_NUMBER", "LOT_NUMBER_SUFFIX") {
+	match build_number_gnaf(&detail, "LOT_NUMBER_PREFIX", "LOT_NUMBER", "LOT_NUMBER_SUFFIX") {
 		Some(lot) => { 
 			let _ = newdoc.insert("LOT", lot);
 		}
@@ -359,28 +389,34 @@ fn new_doc(state: i32, detail: &Document, street: &Document, geo: &Document) -> 
 		Some(value) => { let _ = newdoc.insert("BUILDING_NAME", value); },
 		None => ()
 	}
-	match get_longlat(&geo, "LONGITUDE") {
+	match get_longlat_gnaf(&geo, "LONGITUDE") {
 		Some(value) => { let _ = newdoc.insert("LONG", value); },
 		None => ()
 	}
-	match get_longlat(&geo, "LATITUDE\r") {
+	match get_longlat_gnaf(&geo, "LATITUDE\r") {
 		Some(value) => { let _ = newdoc.insert("LAT", value); },
 		None => ()
 	}
 	
-//	let _ = newcollection.insert_one(newdoc, None);
 	return Some(newdoc);	
 }
 
-fn detail_id(detail: &Document) -> &str {
-	detail.get("ADDRESS_DETAIL_PID").and_then(Bson::as_str).unwrap()
+fn detail_id_gnaf(detail: &Document) -> String {
+	match detail.get("ADDRESS_DETAIL_PID").and_then(Bson::as_str) {
+		Some(id) => {
+			id.to_string()
+		},
+		None => {
+			panic!("no ADDRESS_DETAIL_PID");
+		}
+	}
 }
 
 fn street_id(street: &Document) -> &str {
 	street.get("STREET_LOCALITY_PID").and_then(Bson::as_str).unwrap()
 }
 
-fn build_number(detail: &Document, prefix: &str, number: &str, suffix: &str) -> Option<String> {
+fn build_number_gnaf(detail: &Document, prefix: &str, number: &str, suffix: &str) -> Option<String> {
 	match detail.get(number).and_then(Bson::as_i32) {
 		Some(num) => {
 			match detail.get(suffix).and_then(Bson::as_str) {
@@ -435,7 +471,7 @@ fn get_buildling_name(detail: &Document, name: &str) -> Option<String> {
 					Some("INFINITY".to_string())
 				},
 				None => { 
-					println!("missing {} in {}", name, detail_id(&detail)); 
+					println!("missing {} in {}", name, detail_id_gnaf(&detail)); 
 					return None;
 				}
 			}
@@ -470,17 +506,17 @@ fn build_street(street: &Document, name: &str, code: &str, suffix: &str) -> Opti
 	}
 }
 
-fn get_i32(detail: &Document, name: &str) -> Option<i32> {
+fn get_i32(detail: &Document, id: &String, name: &str) -> Option<i32> {
 	match detail.get(name).and_then(Bson::as_i32) {
 		Some(v) => { Some(v) },
 		None => { 
-			println!("missing {} in {}", name, detail_id(&detail));
+			println!("missing {} in {}", name, id);
 			return None;
 		}
 	}
 }
 
-fn get_str(detail: &Document, name: &str) -> Option<String> {
+fn get_str(detail: &Document, id: &String, name: &str) -> Option<String> {
 	match detail.get(name).and_then(Bson::as_str) {
 		Some(v) => { 
 			if v.len() > 0 { 
@@ -491,7 +527,7 @@ fn get_str(detail: &Document, name: &str) -> Option<String> {
 			}
 		},
 		None => { 
-			println!("missing {} in {}", name, detail_id(&detail)); 
+			println!("missing {} in {}", name, id); 
 			return None;
 		}
 	}
@@ -511,13 +547,13 @@ fn get_possible_str(detail: &Document, name: &str) -> Option<String> {
 	}
 }
 
-fn get_longlat(geo: &Document, name: &str) -> Option<f64> {
+fn get_longlat_gnaf(geo: &Document, name: &str) -> Option<f64> {
 	match geo.get(name).and_then(Bson::as_str) {
 		Some(v) => { 
 			match f32::from_str(v.trim_end()) {
 				Ok(d) => { Some(d as f64) }
 				Err(e) => {
-					println!("{} {} err: {}", detail_id(&geo), name, e);
+					println!("{} {} err: {}", detail_id_gnaf(&geo), name, e);
 					return None;
 				}
 			}
@@ -529,7 +565,7 @@ fn get_longlat(geo: &Document, name: &str) -> Option<f64> {
 					match geo.get(name).and_then(Bson::as_i32) {
 						Some(v) => { Some(v as f64) },
 						None => { 
-							println!("missing {} in {}", name, detail_id(&geo)); 
+							println!("missing {} in {}", name, detail_id_gnaf(&geo)); 
 							return None;
 						}
 					}	
@@ -581,7 +617,7 @@ fn get_locality_doc_with_int(locality: &Collection, id: i32) -> Document {
 	}
 }
 
-fn get_geo_doc(geo: &Collection, id: &str) -> Document {
+fn get_geo_doc(geo: &Collection, id: &String) -> Document {
 	match geo.find_one(doc! { "ADDRESS_DETAIL_PID": id }, FindOneOptions::builder().build()) {
 		Ok(doc) => {
 			match doc {
@@ -595,3 +631,255 @@ fn get_geo_doc(geo: &Collection, id: &str) -> Document {
 	}
 }
 
+fn build_one_og(db: &Database, pid: &str, state: i32, newcollection: &Collection, newtuple: &Collection) {
+	println!("building {} state {}", pid, state);
+	_build_one_og(pid, state, db.collection("open_gov"), &newcollection, &newtuple);
+}
+
+fn _build_one_og(pid: &str, state: i32, detail: Collection, newcollection: &Collection, newtuple: &Collection) {
+		
+	match newcollection.delete_one(doc! { "EID": pid }, DeleteOptions::builder().build()) {
+		Ok(result) => { println!("deleted {} in new collection", result.deleted_count) },
+		Err(e) => { println!("err: {}", e); }
+	}
+
+	match f32::from_str(pid) {
+		Ok(addr) => {
+			match detail.find_one(doc! { "ADDRESS_ID": addr }, FindOneOptions::builder().build()) {
+				Ok(detaildoc) => {
+					match detaildoc {
+						Some(doc) => {
+							let (doc, tuple) = do_detail_og(state, doc);
+							match doc {
+								Some(doc) => {
+									let _ = newcollection.insert_one(doc, None);
+								},
+								None => ()
+							}
+							match tuple {
+								Some(tuple) => {
+									let _ = newtuple.insert_one(doc! { "STATE": tuple.0, "LOCALITY": tuple.1, "ZIP": tuple.2 }, None);
+								},
+								None => ()
+							}
+						},
+						None => {
+							println!("doc not found.");
+						}
+					}
+				}
+				Err(e) => { println!("err: {}", e); }
+			}
+		},
+		Err(e) => { println!("{} not a number err: {}", pid, e); }
+	}
+	
+}
+
+fn do_detail_og(state: i32, detaildoc: Document) -> (Option<Document>, Option<(i32, String, i32)>) {
+	
+	let id = detail_id_og(&detaildoc);
+	match new_doc_og(state, &detaildoc) {
+		Some(doc) => {
+			match get_i32(&detaildoc, &id, "BOROCODE") {
+				Some(lid) => {
+					match get_i32(&detaildoc, &id, "ZIPCODE") {
+						Some(zip) => { 
+							(Some(doc), Some((state, i32::to_string(&lid), zip)))
+						},
+						None => (Some(doc), None)
+					}			
+				}
+				None =>(Some(doc), None)
+			}
+		},
+		None => (None, None)
+	}
+
+}
+
+fn detail_id_og(detail: &Document) -> String {
+	match detail.get("ADDRESS_ID").and_then(Bson::as_i32) {
+		Some(id) => {
+			i32::to_string(&id)
+		},
+		None => {
+			panic!("no ADDRESS_ID");
+		}
+	}
+}
+
+fn new_doc_og(state: i32, detail: &Document) -> Option<Document> {
+
+	let id = detail_id_og(&detail);
+	let mut newdoc = doc! { "STATE": state, "EID": id.as_str() };
+	match get_i32(&detail, &id, "ZIPCODE") {
+		Some(value) => { let _ = newdoc.insert("ZIP", value); },
+		None => { let _ = newdoc.insert("ZIP", 0); }
+	}
+	match get_str(&detail, &id, "FULL_STREE") {
+		Some(value) => { let _ = newdoc.insert("STREET", value); },
+		None => { println!("missing street name in {}", detail_id_og(&detail)); }
+	}
+	match build_number_og(&detail, "H_NO", "HNO_SUFFIX") {
+		Some(number) => { 
+			let _ = newdoc.insert("NUMBER", number); 
+		},
+		None => ()
+	}
+	match get_str(&detail, &id, "the_geom") {
+		Some(value) => { 
+			let (lat, long) = get_lat_long_og(value);
+			let _ = newdoc.insert("LAT", lat);
+			let _ = newdoc.insert("LONG", long);
+		},
+		None => { println!("missing the_gem in {}", detail_id_og(&detail)); }
+	}
+	
+	return Some(newdoc);	
+}
+
+fn get_lat_long_og(point: String) -> (f64, f64) {
+	match point.find("(") {
+		Some(lbrack) => {
+			let mut rem: String = point.chars().skip(lbrack + 1).collect();
+			match rem.find(" ") {
+				Some(space) => {
+					let long: String = rem.chars().take(space).collect();
+					rem = rem.chars().skip(space+1).collect();
+					let lat: String = rem.chars().take(rem.len()-1).collect();
+					match f64::from_str(lat.as_str()) {
+						Ok(lt) => {
+							match f64::from_str(long.as_str()) {
+								Ok(ln) => (lt, ln),
+								Err(_) => (0.0, 0.0)
+							}
+						},
+						Err(_) => (0.0, 0.0)
+					}
+				},
+				None => (0.0, 0.0)
+			}
+		},
+		None => (0.0, 0.0)
+	}
+}
+
+fn build_number_og(detail: &Document, number: &str, suffix: &str) -> Option<String> {
+	match detail.get(number).and_then(Bson::as_i32) {
+		Some(num) => {
+			match detail.get(suffix).and_then(Bson::as_str) {
+				Some(sfx) => {
+					Some(format!("{}{}", num, sfx))
+				},
+				None => {
+					Some(format!("{}", num))
+				}
+			}
+		},
+		None => None
+	}
+}
+
+fn build_state_og(db: &Database, state: i32, newcollection: Option<&Collection>, newtuple: Option<&Collection>) {
+	println!("building state {}", state);
+	_build_state_og(state, db.collection("open_gov"), newcollection, newtuple);
+}
+
+fn _build_state_og(state: i32, detail: Collection, 
+		newcollection: Option<&Collection>, newtuplescollection: Option<&Collection>) {
+	
+	match newcollection {
+		Some(c) => {
+			match c.delete_many(doc! { "STATE": state }, DeleteOptions::builder().build()) {
+				Ok(result) => { println!("deleted {} in new collection", result.deleted_count) },
+				Err(e) => { println!("err: {}", e); }
+			}
+		},
+		None => ()
+	}
+	match newtuplescollection {
+		Some(c) => {
+			match c.delete_many(doc! { "STATE": state }, DeleteOptions::builder().build()) {
+				Ok(result) => { println!("deleted {} in new tuples collection", result.deleted_count) },
+				Err(e) => { println!("err: {}", e); }
+			}
+		},
+		None => ()
+	}
+	
+	let detailp = detail.find(None, FindOptions::builder().
+		batch_size(10000).
+		no_cursor_timeout(true).
+		build()).unwrap();
+	let mut total = 0;
+	match detail.estimated_document_count(None) {
+		Ok(count) => { 
+			total = count;
+		},
+		Err(_) => {
+		}
+ 	}
+	let mut i = 0;
+	let mut newdocs: Vec<Document> = Vec::new();
+	let mut newtuples: Vec<(i32, String, i32)> = Vec::new();
+	for result in detailp {
+		match result {
+			Ok(detaildoc) => {
+			
+				i += 1;
+				// dot each 1000
+				if (i % 1000) == 0 {
+					print!(".");
+ 					io::stdout().flush().unwrap();
+ 					// flush the new docs.
+					match newcollection {
+						Some(c) => { let _ = c.insert_many(newdocs.drain(..), None); },
+						None => { let _ = newdocs.drain(..); }
+					}
+				}
+				// 80 columns :-) why not.
+				if (i % 80000) == 0 {
+					print!("({} tuples)", newtuples.len());
+					println!(" {}%", (((i as f32) / (total as f32)) * 100.0).floor());
+				}
+				let (doc, tuple) = do_detail_og(state, detaildoc);
+				match doc {
+					Some(doc) => {
+						newdocs.push(doc);
+					},
+					None => ()
+				}
+				match tuple {
+					Some(tuple) => {
+						if !newtuples.iter().any(|x| x.0 == tuple.0 && x.1 == tuple.1 && x.2 == tuple.2) {
+							newtuples.push(tuple);
+						}
+					},
+					None => ()
+				}
+			}
+			Err(e) => {
+				println!("err: {}", e);
+			}
+		}
+	}
+	
+	// any remaining new docs.
+	match newcollection {
+		Some(c) => { let _ = c.insert_many(newdocs.drain(..), None); },
+		None => { let _ = newdocs.drain(..); }
+	}
+ 	
+	println!("creating {} tuples", newtuples.len());
+	match newtuplescollection {
+		Some(c) => {
+			let _ = c.insert_many(
+						newtuples.drain(..).
+						map(|x| doc! { "STATE": x.0, "LOCALITY": x.1, "ZIP": x.2 }), None);
+		},
+		None => ()
+	}
+
+	println!("");
+}
