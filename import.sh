@@ -9,7 +9,7 @@ fi
 
 DB=$1
 
-pushd _PATH_TO_ZIP/G-NAF/G-NAF\ FEBRUARY\ 2020/Standard
+pushd PATH_TO_ZIP/G-NAF/G-NAF\ FEBRUARY\ 2020/Standard
 cat ACT_ADDRESS_DETAIL_psv.psv | sed 's/^/"/;s/|/","/g;s/$/"/' | mongoimport --type csv -d $DB -c act_address_detail --headerline --drop
 cat ACT_STREET_LOCALITY_psv.psv | sed 's/^/"/;s/|/","/g;s/$/"/' | mongoimport --type csv -d $DB -c act_street_locality --headerline --drop
 cat ACT_LOCALITY_psv.psv | sed 's/^/"/;s/|/","/g;s/$/"/' | mongoimport --type csv -d $DB -c act_locality --headerline --drop

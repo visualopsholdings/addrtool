@@ -9,15 +9,22 @@ fi
 
 DB=$1
 NEWCOLL=$2
+NEWTUPLECOLL=$2_tuples
 
 mongo <<EOF
 use $DB
 db.runCommand(
 	{ createIndexes: "$NEWCOLL", indexes: [ 
-  		{ key: { "ADDRESS_DETAIL_PID": 1 }, name: "ADDRESS_DETAIL_PID" }, 
+  		{ key: { "EID": 1 }, name: "EID" }, 
   		{ key: { "STATE": 1 }, name: "STATE" }, 
-  		{ key: { "LOCALITY": 1 }, name: "LOCALITY" }, 
-  		{ key: { "POSTCODE": 1 }, name: "POSTCODE" }
+  		{ key: { "ZIP": 1 }, name: "ZIP" }
 	]}
+)
+db.runCommand(
+  { createIndexes: "$NEWTUPLECOLL", indexes: [ 
+  	{ key: { "STATE": 1 }, name: "STATE" },
+  	{ key: { "LOCALITY": 1 }, name: "LOCALITY" },
+  	{ key: { "ZIP": 1 }, name: "ZIP" } 
+  ] }
 )
 EOF

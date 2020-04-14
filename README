@@ -14,7 +14,7 @@ Edit the import.sh script and change the path where you unzipped your downloaded
 
 Then import into a DB with:
 
-$ ./import.sh yourDBname
+$ ./import.sh yourDBname aus
 
 After this your mongo DB will have a tremendous number of collections that are used by the Rust based tool.
 
@@ -24,69 +24,71 @@ You will need a lot of disk space. I unzipped the files onto an external drive a
 
 Once you have it all imported into MongoDB, the Rust tool below uses the MongoDB so you don't need all the unzipped files anymore.
 
-$ cargo run yourDBname aus
+$ ./build.sh yourDBname aus
 
-And wait for a day or so. On my old MacBook pro it does 250 records every second.
+The ids can be anything you like, just pick a different one for each state. Or you can just have a single state.
+
+Then wait for a day or so. On my old MacBook pro it does 250 records every second.
 
 There are 15271641 records or so, so do the math :-) (I did, 16.96849 hours)
 
-Afterwards you will have a nice new collection which has this schema:
+Afterwards you will have a nice new collection "aus" which has this schema:
 
 {
   "_id": ObjectId("5e910adc003cbe3100233296"),
   "STATE": 5,
-  "LOCALITY": "SPRING HILL",
-  "ADDRESS_DETAIL_PID": "GAQLD163300318",
-  "POSTCODE": 4000,
-  "FLAT_TYPE": "SE",
-  "LEVEL_TYPE": "L",
+  "EID": "GAQLD163300318",
+  "ZIP": 4000,
   "STREET": "WICKHAM TERRACE ",
-  "FLAT_NUMBER": "3",
-  "LEVEL_NUMBER": "4",
-  "NUMBER_FIRST": "155",
-  "NUMBER_LAST": "157",
+  "NUMBER": "155 - 157",
+  "UNIT": "SE 3",
+  "LEVEL": "L 4",
   "LONG": 153.0250418800000034,
   "LAT": -27.464509963989257812
 }
 
-- There will always be a "NUMBER_FIRST" which is basically the house number.
-- There will only be a "NUMBER_LAST" if the address spans a few house numbers.
-- There will only be a "FLAT_TYPE" and "FLAT_NUMBER" if it is a block of flats.
-- There will only be a "LEVEL_TYPE" and "LEVEL_NUMBER" if it is a block of flats that has multiple levels.
+- There will always be a "NUMBER" which is basically the house number.
+- There will only be a "FLAT" if it is a block of flats.
+- There will only be a "LEVEL" if it is a block of flats that has multiple levels.
 - The "ADDRESS_DETAIL_PID" is useful if you want something else later on from the G-NAF database.
 
-The state ids are:
+And one more collection "aus_tuple" that looks like this:
 
-1 = ACT
-2 = NSW
-3 = NT
-4 = OT
-5 = QLD
-6 = SA
-7 = TAS
-8 = VIC
-9 = WA
+{
+  "_id": ObjectId("5e910adc003cbe3100233297"),
+  "STATE": 5,
+  "LOCALITY": "SPRING HILL",
+  "ZIP": 4000
+}
 
-5) Index your new DB 
+When your debugging, you can specify a singel doc to try it all out with:
+
+$ cargo run yourDBname aus 1 ACT --single GAACT715707966
+
+You can also drop all of the data in the collections commpletely for a run by using:
+
+$ cargo run yourDBname aus 1 ACT --drop
+
+To see other options, use
+
+$ cargo run
+
+5) Backup your new DB
+
+To backup the DB you created. Do this before you create the indexes on it.
+
+./backup.sh yourDBname aus aus.tgz
+
+6) Index your new DB 
 
 ./index.sh yourDBname aus
 
-Where "aus" is the name of the new collection.
+To create useful indexes on the collection. You can use this script after importing your DB somewhere else.
 
-To create useful indexes on the collection.
-
-6) Drop all the unused collections
+7) Drop all the unused collections
 
 ./drop.sh yourDBname
 
 To drop all the collections that were used.
-
-7) Backup your new DB
-
-To backup the DB you created:
-
-./backup.sh yourDBname aus aus.tgz
-
-
 
 
